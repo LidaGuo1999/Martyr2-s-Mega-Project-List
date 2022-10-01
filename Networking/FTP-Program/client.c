@@ -14,6 +14,7 @@
 #define ACCT "ACCT "
 #define CWD "CWD "
 #define CDUP "CDUP "
+#define RETR "RETR "
 #define PASV "PASV\r\n"
 #define LIST "LIST\r\n"
 #define QUIT "QUIT\r\n"
@@ -37,6 +38,9 @@ typedef struct {
 // Global variables
 char sub_ip[20];
 int sub_port = 0;
+int rwFlag = 0; // 0代表非读写命令，1代表从服务器读，2代表向服务器写
+FILE *writeToLocal;
+FILE *readFroLocal;
 
 void logger(int flag, char *msg) {
     switch (flag)
@@ -74,6 +78,19 @@ int check_reply(char *reply, char *target) {
     return 0;
 }
 
+void splitStringBySpace(char *s, char *rtn[]) {
+    int ri = 0, length = strlen(s)-2;
+    rtn[ri++] = s;
+    for (int i = 0; i < length; i++) {
+        if (s[i] == ' ') {
+            rtn[ri++] = s+i+1;
+            s[i] = '\0';
+        }
+        else continue;
+    }
+    return ;
+}
+
 void *data_channel(void *ipp) {
     int sockfd;
     struct sockaddr_in data_addr;
@@ -102,16 +119,17 @@ void *data_channel(void *ipp) {
         logger(log_ERROR, "connecting in data channel.\n");
     }
 
-    //logger(log_SUCCESS, "Connected to FTP server data port.\n");
-
-    while (1) {
-        int rtn = recv(sockfd, recv_buffer, sizeof(recv_buffer), 0);
-        if (rtn == 0) break;
-        if (strlen(recv_buffer) > 0) {
+    logger(log_SUCCESS, "Connected to FTP server data port.\n");
+    bzero((char *)recv_buffer, sizeof(recv_buffer));
+    while (recv(sockfd, recv_buffer, sizeof(recv_buffer), 0) > 0) {
+        if (rwFlag == 0) {
             logger(log_RECEIVE, "\n");
             printf("%s", recv_buffer);
             break;
+        } else if (rwFlag == 1) {
+            fwrite(recv_buffer, sizeof(char), strlen(recv_buffer), writeToLocal);
         }
+        bzero((char *)recv_buffer, sizeof(recv_buffer));
     }
     //shutdown(sockfd, SHUT_RDWR);
     
@@ -162,6 +180,13 @@ void handle_PORT(char *str, char *h, int *p) {
 }
 
 void handle_usercommand(int sockfd, char *send_buffer, char *recv_buffer, char *command) {
+    char *rtn[7]; // 最多支持7个参数
+    bzero((char *)rtn, sizeof(rtn));
+    splitStringBySpace(command, rtn);
+    //for (int i = 0; rtn[i] != 0; i++) printf("com: %s\n", rtn[i]);
+
+    char *com_name = rtn[0];
+
     if (strcmp("list\n", command) == 0) {
         strcpy(send_buffer, LIST);
         send(sockfd, send_buffer, strlen(send_buffer), 0);
@@ -190,7 +215,31 @@ void handle_usercommand(int sockfd, char *send_buffer, char *recv_buffer, char *
             logger(log_SUCCESS, "Disconnect from FTP server.\n");
             exit(0);
         }
-        
+    } else if (strcmp("retr", com_name) == 0) {
+        bzero((char *)send_buffer, 256);
+        strcpy(send_buffer, RETR);
+        strcat(send_buffer, rtn[1]);
+        strcat(send_buffer, "\r\n");
+        send(sockfd, send_buffer, strlen(send_buffer), 0);
+
+        writeToLocal = fopen(rtn[2], "w");
+        rwFlag = 1;
+
+        pthread_t sub_data;
+        ip_port data_ipp;
+        data_ipp.ip = sub_ip;
+        data_ipp.port = sub_port;
+
+        pthread_create(&sub_data, NULL, (void *)data_channel, (void *)&data_ipp);
+        pthread_join(sub_data, NULL);
+
+        bzero((char *)recv_buffer, 256);
+        while (recv(sockfd, recv_buffer, 256, 0)) {
+            if (check_reply(recv_buffer, reply_226)) break;
+            bzero((char *)recv_buffer, 256);
+        }
+        bzero((char *)recv_buffer, 256);
+        fclose(writeToLocal);
     }
 }
 
