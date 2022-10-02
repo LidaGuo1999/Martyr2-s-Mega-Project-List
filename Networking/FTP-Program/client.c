@@ -15,6 +15,7 @@
 #define CWD "CWD "
 #define CDUP "CDUP "
 #define RETR "RETR "
+#define STOR "STOR "
 #define PASV "PASV\r\n"
 #define LIST "LIST\r\n"
 #define QUIT "QUIT\r\n"
@@ -40,7 +41,7 @@ char sub_ip[20];
 int sub_port = 0;
 int rwFlag = 0; // 0代表非读写命令，1代表从服务器读，2代表向服务器写
 FILE *writeToLocal;
-FILE *readFroLocal;
+FILE *readFromLocal;
 
 void logger(int flag, char *msg) {
     switch (flag)
@@ -96,7 +97,7 @@ void *data_channel(void *ipp) {
     struct sockaddr_in data_addr;
     struct hostent *data_host;
     char input_buffer[256], recv_buffer[256];
-    char *send_buffer;
+    char send_buffer[256];
 
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
@@ -121,15 +122,29 @@ void *data_channel(void *ipp) {
 
     logger(log_SUCCESS, "Connected to FTP server data port.\n");
     bzero((char *)recv_buffer, sizeof(recv_buffer));
-    while (recv(sockfd, recv_buffer, sizeof(recv_buffer), 0) > 0) {
+    bzero((char *)send_buffer, sizeof(send_buffer));
+    while (1) {
         if (rwFlag == 0) {
-            logger(log_RECEIVE, "\n");
-            printf("%s", recv_buffer);
-            break;
+            if (recv(sockfd, recv_buffer, sizeof(recv_buffer), 0) > 0) {
+                //logger(log_RECEIVE, "\n");
+                printf("%s", recv_buffer);
+            } else break;
         } else if (rwFlag == 1) {
-            fwrite(recv_buffer, sizeof(char), strlen(recv_buffer), writeToLocal);
+            if (recv(sockfd, recv_buffer, sizeof(recv_buffer), 0) > 0) {
+                fwrite(recv_buffer, sizeof(char), strlen(recv_buffer), writeToLocal);
+            } else break;
+            
+        } else if (rwFlag == 2) {
+            if (fread(send_buffer, sizeof(char), sizeof(send_buffer), readFromLocal) > 0) {
+                send(sockfd, send_buffer, strlen(send_buffer), 0);
+                bzero((char *)send_buffer, sizeof(send_buffer));
+            } else {
+                shutdown(sockfd, SHUT_RDWR);
+                break;
+            }
         }
         bzero((char *)recv_buffer, sizeof(recv_buffer));
+        bzero((char *)send_buffer, sizeof(send_buffer));
     }
     //shutdown(sockfd, SHUT_RDWR);
     
@@ -188,6 +203,7 @@ void handle_usercommand(int sockfd, char *send_buffer, char *recv_buffer, char *
     char *com_name = rtn[0];
 
     if (strcmp("list\n", command) == 0) {
+        rwFlag = 0;
         strcpy(send_buffer, LIST);
         send(sockfd, send_buffer, strlen(send_buffer), 0);
 
@@ -207,6 +223,7 @@ void handle_usercommand(int sockfd, char *send_buffer, char *recv_buffer, char *
         bzero((char *)recv_buffer, 256);
         
     } else if (strcmp("quit\n", command) == 0) {
+        rwFlag = 0;
         strcpy(send_buffer, QUIT);
         send(sockfd, send_buffer, strlen(send_buffer), 0);
         bzero((char *)recv_buffer, 256);
@@ -240,6 +257,31 @@ void handle_usercommand(int sockfd, char *send_buffer, char *recv_buffer, char *
         }
         bzero((char *)recv_buffer, 256);
         fclose(writeToLocal);
+    } else if (strcmp("stor", com_name) == 0) {
+        bzero((char *)send_buffer, 256);
+        strcpy(send_buffer, STOR);
+        strcat(send_buffer, rtn[1]);
+        strcat(send_buffer, "\r\n");
+        send(sockfd, send_buffer, strlen(send_buffer), 0);
+
+        readFromLocal = fopen(rtn[2], "r");
+        rwFlag = 2;
+
+        pthread_t sub_data;
+        ip_port data_ipp;
+        data_ipp.ip = sub_ip;
+        data_ipp.port = sub_port;
+
+        pthread_create(&sub_data, NULL, (void *)data_channel, (void *)&data_ipp);
+        pthread_join(sub_data, NULL);
+
+        bzero((char *)recv_buffer, 256);
+        while (recv(sockfd, recv_buffer, 256, 0)) {
+            if (check_reply(recv_buffer, reply_226)) break;
+            bzero((char *)recv_buffer, 256);
+        }
+        bzero((char *)recv_buffer, 256);
+        fclose(readFromLocal);
     }
 }
 
