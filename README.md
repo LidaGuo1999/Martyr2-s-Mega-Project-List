@@ -75,9 +75,9 @@ egex Query Tool** – A tool that allows the user to enter a text string and the
 Networking
 ---------
 
-**FTP Program** – A file transfer program which can transfer files back and forth from a remote web sever.
++ [x] **FTP Program** – A file transfer program which can transfer files back and forth from a remote web sever.
 
-**Get Atomic Time from Internet Clock** – This program will get the true atomic time from an atomic time clock on the Internet. There are various clocks across the world. Do a search for a list of them.
++ [x] **Get Atomic Time from Internet Clock** – This program will get the true atomic time from an atomic time clock on the Internet. There are various clocks across the world. Do a search for a list of them.
 
 **Chat Application (IRC or MSN Style)** – Create a chat application that can create simple chat rooms like on Internet Relay Chat (IRC) or a more direct chatting style like MSN. For added complexity, create your own protocol to facilitate this chatting.
 
@@ -85,7 +85,7 @@ Networking
 
 **P2P File Sharing App** – Create a program like LimeWire, FrostWire, Bearshare, or a torrent style application.
 
-**Port Scanner** – Enter an IP address and a port range where the program will then attempt to find open ports on the given computer by connecting to each of them. On any successful connections mark the port as open.
++ [x] **Port Scanner** – Enter an IP address and a port range where the program will then attempt to find open ports on the given computer by connecting to each of them. On any successful connections mark the port as open.
 
 **Mail Checker (POP3 / IMAP)** – The user enters various account information include web server and IP, protocol type (POP3 or IMAP) and the application will check for email on several accounts at a given interval.
 
@@ -239,7 +239,7 @@ Databases
 **Event Scheduler and Calendar** – Make an application which allows the user to enter a date and time of an event, event notes and then schedule those events on a calendar. The user can then browse the calendar or search the calendar for specific events. For added complexity, allow the application to create reoccurrence events that reoccur every day, week, month, year etc.
 
 **Budget Tracker** – Write an application that keeps track of a household’s budget. The user can add expenses, income, and recurring costs to find out how much they are saving or losing over a period of time. For added complexity allow the user to specify a date range and see the net flow of money in and out of the house budget for that time period.
-
+                                                
 **Address Book** – Keep track of various contacts, their numbers, emails and little notes about them like a Rolodex in the database. For extra complexity, allow the user to connect to a website publish their address book based on specific options the user has set.
 
 **TV Show Tracker** – Got a favorite show you don’t want to miss? Don’t have a PVR or want to be able to find the show to then PVR it later? Make an application which can search various online TV Guide sites, locate the shows/times/channels and add them to a database application. The database/website then can send you email reminders that a show is about to start and which channel it will be on.
